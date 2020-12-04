@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!-- START SNIPPET: e1 -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:camel="http://camel.apache.org/schema/spring"
+       xmlns:cxf="http://camel.apache.org/schema/cxf"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:cxfcore="http://cxf.apache.org/core"
+       xmlns:sec="http://cxf.apache.org/configuration/security"
+       xmlns:httpj="http://cxf.apache.org/transports/http-jetty/configuration"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/context/spring-util.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://camel.apache.org/schema/cxf http://camel.apache.org/schema/cxf/camel-cxf.xsd
+       http://cxf.apache.org/core http://cxf.apache.org/schemas/core.xsd
+       http://cxf.apache.org/configuration/security http://cxf.apache.org/schemas/configuration/security.xsd
+       http://cxf.apache.org/transports/http-jetty/configuration http://cxf.apache.org/schemas/configuration/http-jetty.xsd">
+
+  <!-- spring property placeholder, ignore resource not found as the file resource is for unit testing -->
+  <context:property-placeholder location="classpath:application.properties"
+                                ignore-resource-not-found="true"/>
+
+  <!-- Use a bean to start and stop the real web service (is not Camel specific) -->
+  <!-- In a real use-case the real web service would be probably located on another server
+       but we simulate this in the same JVM -->
+  
+  
+            
+  <cxfcore:bus/>
+  
+    <httpj:engine-factory bus="cxf" >
+      <httpj:engine port="${proxy.port}" >
+        <httpj:tlsServerParameters >
+          <sec:keyManagers keyPassword="${proxy.keystore}" >
+            <sec:keyStore resource="certs/mykeystore.jks" password="${proxy.keystore}" type="JKS"/>
+          </sec:keyManagers>
+          <sec:trustManagers>
+            <sec:keyStore resource="certs/mykeystore.jks" password="${proxy.keystore}" type="JKS"/>
+          </sec:trustManagers>
+          <sec:clientAuthentication want="true" required="false"/>
+        </httpj:tlsServerParameters>
+        <httpj:handlers>
+				<bean class="org.apache.camel.example.CustomContextHandler" />
+		</httpj:handlers>
+      </httpj:engine>
+    </httpj:engine-factory>
+    
+    <cxf:rsServer id="streamProcessor" 
+    	address="${proxy.transport}://${proxy.host}:${proxy.port}/kafka/StreamData" 
+    	serviceClass="org.apache.camel.example.cxf.controller.StreamDataController"    >
+    </cxf:rsServer>
+	
+	<bean id="uploadProcessor" class="org.apache.camel.example.processor.UploadProcessor"/>
+	
+		
+  <!-- this is the Camel route which proxies the real web service and forwards SOAP requests to it -->
+  <camelContext xmlns="http://camel.apache.org/schema/spring" useMDCLogging="true">
+  
+    <!-- property which contains port number -->
+    <propertyPlaceholder id="properties" location="classpath:application.properties"/>
+
+    <endpoint id="kafkaFileUpload" uri="file://${filefolder.upload}?fileName=${filename.upload}&amp;charset=utf-8"/>
+    <endpoint id="kafkaFileValidEndPoint" uri="kafka:${consumer.ValidFile}?brokers=${kafka.host}:${kafka.port}"/>
+	<endpoint id="kafkaFileErrorEndPoint" uri="kafka:${consumer.ErrorFile}?brokers=${kafka.host}:${kafka.port}"/>
+	<endpoint id="kafkaStreamProducerEndPoint" uri="kafka:${producer.Message}?brokers=${kafka.host}:${kafka.port}"/>
+	<endpoint id="kafkaStreamConsumerEndPoint" uri="kafka:${consumer.Message}?brokers={{kafka.host}}:{{kafka.port}}&amp;maxPollRecords={{consumer.maxPollRecords}}&amp;consumersCount={{consumer.consumersCount}}&amp;seekTo={{consumer.seekTo}}&amp;groupId={{consumer.group}}" />
+	<endpoint id="kafkaStreamValidEndPoint" uri="kafka:${consumer.ValidMessage}?brokers=${kafka.host}:${kafka.port}"/>
+	<endpoint id="kafkaStreamErrorEndPoint" uri="kafka:${consumer.ErrorMessage}?brokers=${kafka.host}:${kafka.port}"/>
+	<camel:restConfiguration apiComponent="netty4-http" host="10.0.0.9" port="8881" bindingMode="auto" >
+		<camel:endpointProperty key="chunkedMaxContentLength" value="2097152"  />
+	</camel:restConfiguration>
+	<camel:rest path="/kafka" consumes="multipart/form-data" >
+		<camel:description>Upload file via camel and netty</camel:description>
+		<camel:post uri="/upload">
+      		<to uri="direct:uploadProcessor"/>
+    	</camel:post>
+	</camel:rest>
+	<route>
+	   <from uri="direct:uploadProcessor" />
+	   <process ref="uploadProcessor" />
+	   <to uri="kafkaFileUpload" />
+	</route>
+	<route>
+		<from uri="kafkaFileUpload" />
+		<to uri="direct:kafkafile" />
+	</route>
+	<route>
+		<from uri="direct:kafkafile" />
+		<split>
+			<tokenize token="\n"/>
+			<to uri="direct:splitcontent" />
+		</split>
+	</route>
+	<route>
+		<from uri="direct:splitcontent" />
+		<choice>
+			<when>
+				<simple>${in.body} contains 'PAN'</simple>
+				<to uri="direct:kafkavalidfile" />
+			</when>
+			<otherwise>
+				<to uri="direct:kafkaerrorfile" />
+			</otherwise>
+		</choice>
+	</route>
+	<route>
+		<from uri="direct:kafkavalidfile" />
+		<to uri="kafkaFileValidEndPoint" />
+	</route>
+	<route>
+		<from uri="direct:kafkaerrorfile" />
+		<to uri="kafkaFileErrorEndPoint" />
+	</route>
+	<route>
+		<from uri="cxfrs://bean://streamProcessor?bindingStyle=SimpleConsumer" />
+		<to uri="kafkaStreamProducerEndPoint" />
+	</route>
+	<route>
+		<from uri="direct:kafkavalidmessage" />
+		<to uri="kafkaStreamValidEndPoint" />
+	</route>
+	<route>
+		<from uri="direct:kafkaerrormessage" />
+		<to uri="kafkaStreamErrorEndPoint" />
+	</route>
+	<route>
+		<from uri="kafkaStreamConsumerEndPoint" />
+		<choice>
+			<when>
+				<simple>${in.body} contains 'PAN'</simple>
+				<to uri="direct:kafkavalidmessage" />		
+			</when>
+			<otherwise>
+				<to uri="direct:kafkaerrormessage" />		
+			</otherwise>
+		</choice>
+	</route>
+	
+</camelContext>
+
+</beans>
+<!-- END SNIPPET: e1 -->

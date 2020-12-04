@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/jaiswalvik/camel-example-kafka.svg?branch=master)](https://travis-ci.com/jaiswalvik/camel-example-kafka)
+image:https://travis-ci.com/jaiswalvik/camel-example-kafka.svg?branch=master["Build Status", link="https://travis-ci.com/jaiswalvik/camel-example-kafka"]
 
 === Camel Kafka Example
 

@@ -7,11 +7,11 @@ image:https://travis-ci.com/jaiswalvik/camel-example-kafka.svg?branch=master["Bu
 An example which includes:
  1) EIP Pattern
  2) CXF REST web service
- 1) How to integrate Camel with Kafka.
- 2) Content based routing
- 3) File upload using netty-http in camel
- 4) .jmx file (JMeter) to call the rest end point.
- 5) Sample data file to test file upload. 
+ 3) How to integrate Camel with Kafka.
+ 4) Content based routing
+ 5) File upload using netty-http in camel
+ 6) .jmx file (JMeter) to call the rest end point.
+ 7) Sample data file to test file upload. 
 
 === Forum, Help, etc
 

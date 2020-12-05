@@ -10,7 +10,7 @@ An example which includes:
  3) How to integrate Camel with Kafka.
  4) Content based routing
  5) File upload using netty-http in camel
- 6) Setting up selfsign certificates in embedded jetty(https setup).
+ 6) Setting up self-signed certificates in embedded jetty(https setup).
  7) .jmx file (JMeter) to call the rest end point.
  8) Sample data file to test file upload. 
 

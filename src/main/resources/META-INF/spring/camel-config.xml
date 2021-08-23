@@ -87,7 +87,7 @@
 	<endpoint id="kafkaStreamConsumerEndPoint" uri="kafka:${consumer.Message}?brokers={{kafka.host}}:{{kafka.port}}&amp;maxPollRecords={{consumer.maxPollRecords}}&amp;consumersCount={{consumer.consumersCount}}&amp;seekTo={{consumer.seekTo}}&amp;groupId={{consumer.group}}" />
 	<endpoint id="kafkaStreamValidEndPoint" uri="kafka:${consumer.ValidMessage}?brokers=${kafka.host}:${kafka.port}"/>
 	<endpoint id="kafkaStreamErrorEndPoint" uri="kafka:${consumer.ErrorMessage}?brokers=${kafka.host}:${kafka.port}"/>
-	<camel:restConfiguration apiComponent="netty4-http" host="10.0.0.9" port="8881" bindingMode="auto" >
+	<camel:restConfiguration apiComponent="netty4-http" host="{{netty.host}}" port="{{netty.port}}" bindingMode="auto" >
 		<camel:endpointProperty key="chunkedMaxContentLength" value="2097152"  />
 	</camel:restConfiguration>
 	<camel:rest path="/kafka" consumes="multipart/form-data" >
